@@ -9,11 +9,6 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion"
 import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-} from "@/components/ui/avatar";
-import {
   Search,
   MessageSquare,
   Table,
