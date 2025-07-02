@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useCallback, MouseEvent as ReactMouseEvent } from "react";
+import { useState, useRef, useCallback, MouseEvent as ReactMouseEvent, forwardRef, useImperativeHandle } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Plus, ChevronDown, FileText } from "lucide-react";
@@ -21,6 +21,10 @@ import { DataTableRow } from "./DataTableRow";
 import { PropertyTypeSelector } from "./PropertyTypeSelector";
 import { PropertyMenu } from './PropertyMenu';
 
+export interface EditableTableRef {
+    runAll: () => void;
+}
+
 interface MenuState {
   isOpen: boolean;
   anchorPoint: { x: number; y: number } | null;
@@ -32,10 +36,15 @@ interface AddPropertyMenuState {
     anchorPoint: { x: number; y: number } | null;
 }
 
-export function EditableTable() {
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+interface EditableTableProps {}
+
+export const EditableTable = forwardRef<EditableTableRef, EditableTableProps>((props, ref) => {
     const [rows, setRows] = useState<TableRowData[]>(initialRows);
     const [properties, setProperties] = useState<Property[]>(initialProperties);
     const [columnWidths, setColumnWidths] = useState<ColumnWidths>(initialColumnWidths);
+    const [rowContexts, setRowContexts] = useState<Record<number, string>>({});
+    const [processingCells, setProcessingCells] = useState<Record<string, boolean>>({});
     const [propertyMenuState, setPropertyMenuState] = useState<MenuState>({ 
         isOpen: false, 
         anchorPoint: null,
@@ -46,6 +55,96 @@ export function EditableTable() {
         anchorPoint: null,
     });
     const isResizingRef = useRef<string | null>(null);
+
+    const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+    useImperativeHandle(ref, () => ({
+        runAll: async () => {
+            console.log("Running all rows sequentially...");
+
+            for (const row of rows) {
+                const fileContent = rowContexts[row.id] || row.properties.source;
+
+                if (fileContent) {
+                    let rowHasError = false;
+                    for (const prop of properties) {
+                        if (prop.id === 'source') continue;
+
+                        const cellId = `${row.id}-${prop.id}`;
+                        
+                        setProcessingCells(prev => ({ ...prev, [cellId]: true }));
+                        setRows(prev => prev.map(r => r.id === row.id ? {
+                            ...r,
+                            properties: {...r.properties, [prop.id]: 'Processing...'}
+                        } : r));
+
+                        try {
+                            const response = await fetch('/api/upload', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                },
+                                body: JSON.stringify({
+                                    fileContent: String(fileContent),
+                                    propertyType: prop.type,
+                                    propertyTitle: prop.title,
+                                    customPrompt: prop.prompt,
+                                }),
+                            });
+
+                            if (response.ok) {
+                                const result = await response.json();
+                                const newCellValue = result.result; 
+
+                                setRows(prev => prev.map(r => r.id === row.id ? {
+                                    ...r, 
+                                    properties: {...r.properties, [prop.id]: newCellValue},
+                                } : r));
+                            } else {
+                                rowHasError = true;
+                                console.error(`API call failed for cell ${cellId} with status: ${response.status}`);
+                                setRows(prev => prev.map(r => r.id === row.id ? {
+                                    ...r, 
+                                    properties: {...r.properties, [prop.id]: 'Error'},
+                                } : r));
+                            }
+                        } catch (error) {
+                            rowHasError = true;
+                            console.error(`Error processing cell ${cellId}:`, error);
+                            setRows(prev => prev.map(r => r.id === row.id ? {
+                                ...r, 
+                                properties: {...r.properties, [prop.id]: 'Error'},
+                            } : r));
+                        } finally {
+                             setProcessingCells(prev => {
+                                const newProcessing = {...prev};
+                                delete newProcessing[cellId];
+                                return newProcessing;
+                            });
+                            await sleep(100);
+                        }
+                    }
+                    setRows(prev => prev.map(r => r.id === row.id ? {...r, status: rowHasError ? 'error' : 'completed'} : r));
+                } else {
+                    console.log(`Skipping row ${row.id} because it has no context or source.`);
+                }
+            }
+        }
+    }));
+
+    const handleContextChange = (rowId: number, fileName: string, fileContent: string) => {
+        setRows(prevRows => 
+            prevRows.map(row => 
+                row.id === rowId 
+                    ? { ...row, context: fileName, fileName: fileName, status: 'completed' } 
+                    : row
+            )
+        );
+        setRowContexts(prevContexts => ({
+            ...prevContexts,
+            [rowId]: fileContent
+        }));
+    };
 
     const handleMouseDown = useCallback((columnId: string, e: ReactMouseEvent) => {
         e.preventDefault();
@@ -201,10 +300,22 @@ export function EditableTable() {
                     
                     <tbody className="bg-white divide-y divide-gray-300">
                         {rows.map((row) => (
-                           <DataTableRow key={row.id} row={row} properties={properties} />
+                           <DataTableRow 
+                                key={row.id} 
+                                row={row} 
+                                properties={properties} 
+                                onContextChange={handleContextChange}
+                                processingCells={processingCells}
+                            />
                         ))}
                     </tbody>
                 </table>
+                <div className="p-2 border-t border-gray-200 bg-gray-50">
+                    <Button variant="ghost" onClick={handleAddRow} className="text-gray-600 hover:text-gray-900 font-normal">
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add Row
+                    </Button>
+                </div>
                 <PropertyTypeSelector 
                     isOpen={addPropertyMenuState.isOpen}
                     onClose={handleCloseMenus}
@@ -218,12 +329,8 @@ export function EditableTable() {
                     anchorPoint={propertyMenuState.anchorPoint}
                 />
             </div>
-            <div className="p-2 border-t border-gray-200 bg-gray-50">
-                <Button variant="ghost" onClick={handleAddRow} className="text-gray-600 hover:text-gray-900 font-normal">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Row
-                </Button>
-            </div>
         </div>
     );
-} 
+});
+
+EditableTable.displayName = "EditableTable"; 

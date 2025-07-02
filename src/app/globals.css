@@ -162,3 +162,21 @@ details,
 .interactive {
   cursor: pointer !important;
 }
+
+@keyframes shimmer {
+  0% {
+    background-position: -100% 0;
+  }
+  100% {
+    background-position: 100% 0;
+  }
+}
+
+.animate-shimmer {
+  background: linear-gradient(90deg, #a0c4ff, #c9dfff, #a0c4ff);
+  background-size: 200% 100%;
+  color: transparent;
+  background-clip: text;
+  -webkit-background-clip: text;
+  animation: shimmer 1.5s infinite linear;
+}

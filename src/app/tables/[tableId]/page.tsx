@@ -1,9 +1,5 @@
-import { EditableTable } from "@/components/table/EditableTable";
+'use client';
 
-export default async function TablePage() {
-  return (
-    <main className="flex-1">
-      <EditableTable />
-    </main>
-  );
+export default function TablePage() {
+  return null;
 } 

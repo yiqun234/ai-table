@@ -29,9 +29,10 @@ interface HeaderProps {
   tableId: string;
   isCollapsed: boolean;
   setIsCollapsed: (isCollapsed: boolean) => void;
+  onRun: () => void;
 }
 
-export function Header({ tableId, isCollapsed, setIsCollapsed }: HeaderProps) {
+export function Header({ tableId, isCollapsed, setIsCollapsed, onRun }: HeaderProps) {
   return (
     <header className="flex items-center justify-between p-4 border-b h-16">
       <div className="flex items-center gap-2">
@@ -75,7 +76,7 @@ export function Header({ tableId, isCollapsed, setIsCollapsed }: HeaderProps) {
         </Button>
         <Separator orientation="vertical" className="h-6 mx-2" />
         <Button variant="outline">Export</Button>
-        <Button className="bg-blue-500 hover:bg-blue-600 text-white">Run</Button>
+        <Button onClick={onRun} className="bg-blue-500 hover:bg-blue-600 text-white">Run</Button>
       </div>
     </header>
   );
