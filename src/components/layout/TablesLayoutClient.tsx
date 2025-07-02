@@ -1,8 +1,8 @@
 'use client';
 
-import { Sidebar } from "@/components/layout/Sidebar";
-import { Header } from "@/components/layout/Header";
-import { useState } from "react";
+import { useState } from 'react';
+import { Sidebar } from './Sidebar';
+import { Header } from './Header';
 
 interface TablesLayoutClientProps {
   children: React.ReactNode;
@@ -16,13 +16,13 @@ export function TablesLayoutClient({
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex h-screen overflow-hidden bg-background">
       <Sidebar isCollapsed={isCollapsed} />
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex flex-1 flex-col overflow-y-auto">
         <Header 
-          tableId={tableId} 
           isCollapsed={isCollapsed}
           setIsCollapsed={setIsCollapsed}
+          tableId={tableId}
         />
         <main className="flex-1 overflow-y-auto">
           {children}
